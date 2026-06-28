@@ -10,6 +10,7 @@ import { createReadStream } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { networkInterfaces } from "node:os";
+import { syncManaged } from "./attach.js";
 
 const __dirname = join(fileURLToPath(import.meta.url), "..");
 const PUBLIC_DIR = join(__dirname, "..", "..", "public");
@@ -247,6 +248,14 @@ export class SynapseServer {
         break;
       }
       case "list": {
+        this._wsSend(conn, { type: "sessions", sessions: this.manager.list() });
+        break;
+      }
+      case "refresh": {
+        // re-discover running Claude Code sessions and attach any new ones
+        try {
+          await syncManaged(this.manager, { claudeBin: this.manager.claudeBin });
+        } catch {}
         this._wsSend(conn, { type: "sessions", sessions: this.manager.list() });
         break;
       }

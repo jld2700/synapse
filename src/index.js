@@ -3,6 +3,7 @@
 import { SessionManager } from "./server/session-manager.js";
 import { SynapseServer, localIPs } from "./server/server.js";
 import { resolveClaudeBin } from "./bridge/claude-bridge.js";
+import { syncManaged } from "./server/attach.js";
 
 function parseArgs(argv) {
   const out = { port: 4173, host: "0.0.0.0", cwd: process.cwd(), dev: false, token: null, bin: null };
@@ -45,6 +46,12 @@ async function main() {
   const server = new SynapseServer({ manager, port: args.port, host: args.host, token: args.token });
 
   await server.start();
+
+  // Attach to Claude Code sessions already running on this machine.
+  try {
+    const attached = await syncManaged(manager, { claudeBin: bin });
+    if (attached.length) console.log(`  Attached ${attached.length} existing Claude Code session(s).`);
+  } catch (e) { if (args.dev) console.error("attach sync failed:", e.message); }
 
   const info = server.pairingInfo();
   console.log("\n  Synapse is running.\n");

@@ -280,6 +280,7 @@ const ICONS = {
   bolt: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"/></svg>`,
   wrench: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.5-.5-.5-2.5z"/></svg>`,
   chev: `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>`,
+  refresh: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>`,
 };
 
 function render() {
@@ -446,6 +447,7 @@ function renderDrawer() {
         h("span", { html: `<svg viewBox="0 0 64 64"><g fill="none" stroke="#10a37f" stroke-width="3" stroke-linecap="round"><path d="M20 18c-6 6-6 22 0 28"/><path d="M44 18c6 6 6 22 0 28"/></g><circle cx="32" cy="32" r="5" fill="#10a37f"/></svg>` }),
         "Synapse",
       ),
+      h("button", { class: "icon-btn", title: "Refresh", onclick: refreshSessions, html: ICONS.refresh }),
       h("button", { class: "icon-btn", onclick: () => toggleDrawer(false), html: ICONS.close }),
     ),
     h("button", { class: "new-btn", onclick: () => { state.newSheetOpen = true; render(); } },
@@ -507,6 +509,10 @@ function autoGrow(ta) {
 }
 
 function toggleDrawer(open) { state.drawerOpen = open; render(); }
+
+function refreshSessions() {
+  send({ op: "refresh" });
+}
 
 // ---------- demo mode (for previewing the UI without a live session) ----------
 function loadDemo() {
