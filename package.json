@@ -1,0 +1,17 @@
+{
+  "name": "synapse",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Remote mobile control surface for the Claude Code CLI, aligned to the Codex mobile UI/UX.",
+  "bin": {
+    "synapse": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node src/index.js --dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
