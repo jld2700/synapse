@@ -1,10 +1,10 @@
 [package]
-name = "synapse-server"
+name = "synapse-relay"
 version.workspace = true
 edition.workspace = true
 
 [[bin]]
-name = "synapse-server"
+name = "synapse-relay"
 path = "src/main.rs"
 
 [dependencies]
@@ -16,18 +16,14 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 uuid.workspace = true
 axum = { version = "0.7", features = ["ws"] }
-tower-http = { version = "0.5", features = ["fs", "cors"] }
-tokio-tungstenite = { version = "0.23", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
-url = "2"
+tower-http = { version = "0.5", features = ["cors"] }
+tokio-tungstenite = "0.23"
 futures-util = "0.3"
 rand = "0.8"
 http = "1"
 clap = { version = "4", features = ["derive"] }
-# TLS for secure remote (wss://) access over the internet.
+# TLS termination with a real certificate on the relay.
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "tls12", "std"] }
 rustls-pemfile = "2"
-rcgen = "0.14"
-time = "0.3"
-qr2term = "0.3"
-which = "7"
+dashmap = "6"

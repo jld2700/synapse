@@ -2,6 +2,7 @@ mod claude;
 mod history;
 mod http;
 mod manager;
+mod relay;
 mod tls;
 mod tunnel;
 
@@ -64,6 +65,20 @@ struct Args {
     /// any phone can reach this machine from anywhere with zero network setup.
     #[arg(long)]
     tunnel: bool,
+    /// Connect to a self-hosted Synapse relay for public-internet access. The
+    /// server dials this relay URL (wss://host/uplink?deviceId=...&token=...) as
+    /// an outbound uplink; mobile apps then reach this machine through the relay
+    /// from anywhere. Takes precedence over --tunnel for pairing. Example:
+    ///   --relay wss://relay.example.com/uplink
+    #[arg(long)]
+    relay: Option<String>,
+    /// Device id registered at the relay (default: a random id).
+    #[arg(long)]
+    relay_device_id: Option<String>,
+    /// Per-device token the app must present to reach this device via the relay.
+    /// Defaults to the pairing token.
+    #[arg(long)]
+    relay_token: Option<String>,
     /// Verbose logging.
     #[arg(long)]
     dev: bool,
@@ -145,6 +160,44 @@ async fn main() -> Result<()> {
     match qr2term::print_qr(&pair_url) {
         Ok(_) => println!(),
         Err(e) => tracing::warn!("could not render pairing QR: {e}"),
+    }
+
+    // If a relay is configured, start the outbound uplink bridge in the
+    // background. The server dials the relay, then pipes frames between the
+    // relay socket and its own local WS endpoint so the relay is transparent.
+    // This runs concurrently with the local listener below.
+    if let Some(relay_url) = args.relay.clone() {
+        let device_id = args
+            .relay_device_id
+            .clone()
+            .unwrap_or_else(|| uuid::Uuid::new_v4().to_string()[..8].to_string());
+        let relay_token = args.relay_token.clone().unwrap_or_else(|| token.clone());
+        let local_ws = format!(
+            "{}://localhost:{}/?token={token}",
+            if args.tls { "wss" } else { "ws" },
+            args.port
+        );
+        let scheme = if args.tls { "wss" } else { "ws" };
+        // Build the uplink URL the app will ultimately use to reach us.
+        let connect_host = relay_url
+            .replace("wss://", "")
+            .replace("ws://", "")
+            .replace("/uplink", "")
+            .replace("/connect", "");
+        let app_connect = format!(
+            "synapse://{connect_host}/connect?deviceId={device_id}&token={relay_token}&tls=1"
+        );
+        println!("  Relay uplink:   {relay_url} (deviceId={device_id})");
+        println!("  Relay pair URL: {app_connect}");
+        println!("  Scan this QR with the app to bind this device over the relay:\n");
+        match qr2term::print_qr(&app_connect) {
+            Ok(_) => println!(),
+            Err(e) => tracing::warn!("could not render relay pairing QR: {e}"),
+        }
+        let _ = scheme;
+        tokio::spawn(async move {
+            relay::run_bridge(&relay_url, &device_id, &relay_token, &local_ws).await;
+        });
     }
 
     // Attach to existing Claude Code sessions in the background so a slow or
