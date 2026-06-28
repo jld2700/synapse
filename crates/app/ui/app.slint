@@ -1,0 +1,617 @@
+// Synapse — cross-platform mobile UI for controlling the Claude Code CLI.
+// Design aligned to the ChatGPT mobile app: light, airy layout; full-width
+// assistant rows with a circular avatar; right-aligned user bubbles; a floating
+// pill-shaped composer; minimal top bar. Identifiers keep camelCase to avoid the
+// Slint `a-b` subtraction ambiguity. Property/callback names are a stable
+// contract with crates/app/src/main.rs and must not change shape.
+
+import { LineEdit } from "std-widgets.slint";
+
+global Theme {
+    // ChatGPT mobile palette (light theme).
+    out property <color> bg: #ffffff;
+    out property <color> bgElev: #f7f7f8;
+    out property <color> bgElev2: #ececf1;
+    out property <color> border: #e5e5e7;
+    out property <color> borderStrong: #d9d9e0;
+    out property <color> text: #0d0d0d;
+    out property <color> textDim: #6e6e80;
+    out property <color> textFaint: #9a9aa8;
+    out property <color> accent: #19c37d;
+    out property <color> accentDim: #0d8a54;
+    out property <color> danger: #ef4141;
+    out property <color> warn: #f5a623;
+    out property <color> blue: #2563eb;
+    out property <color> userBubble: #f7f7f8;
+    out property <color> overlay: #00000066;
+    out property <length> radius: 18px;
+    out property <length> radiusSm: 12px;
+    out property <length> pad: 12px;
+}
+
+struct SessionInfo {
+    id: string,
+    name: string,
+    cwd: string,
+    model: string,
+    state: string,
+    attached: bool,
+}
+
+struct MsgBlock {
+    kind: string,
+    role: string,
+    text: string,
+    toolName: string,
+    toolStatus: string,
+    expanded: bool,
+    toolId: string,
+    codeLang: string,
+}
+
+export component App inherits Window {
+    title: "Synapse";
+    preferred-width: 390px;
+    preferred-height: 844px;
+    background: Theme.bg;
+
+    in-out property <string> view: "pairing";
+    in-out property <bool> drawerOpen: false;
+    in-out property <string> pairingHost: "127.0.0.1";
+    in-out property <string> pairingPort: "4173";
+    in-out property <string> pairingToken;
+    in-out property <bool> pairingTls: false;
+    in-out property <string> pairingError;
+    in-out property <bool> connecting: false;
+    // Pair-with-QR sheet state.
+    in-out property <bool> showPairSheet: false;
+    in-out property <string> pairLinkText;
+
+    in-out property <[SessionInfo]> sessions: [];
+    in-out property <string> activeSessionId;
+    in-out property <string> activeSessionName: "Synapse";
+    in-out property <string> activeSessionSub: "no session";
+    in-out property <string> activeState: "idle";
+    in-out property <[MsgBlock]> messages: [];
+    in-out property <string> composerText;
+    in-out property <bool> busy: false;
+    in-out property <bool> reconnecting: false;
+
+    callback pairClicked(string);
+    callback connectClicked();
+    callback sendClicked(string);
+    callback newSessionClicked();
+    callback selectSession(string);
+    callback toggleDrawer();
+    callback refreshClicked();
+    callback toggleTool(int);
+    callback stopClicked();
+
+    // ===== Pairing view (login screen) =====
+    if root.view == "pairing" : VerticalLayout {
+        alignment: center;
+        spacing: 16px;
+        padding: 32px;
+        Rectangle {
+            height: 72px;
+            HorizontalLayout { alignment: center;
+                Rectangle {
+                    width: 64px; height: 64px; border-radius: 32px;
+                    background: Theme.accent;
+                    Text { text: "✦"; color: #ffffff; font-size: 30px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+            }
+        }
+        Text { text: "Welcome to Synapse"; font-size: 22px; font-weight: 700; color: Theme.text; horizontal-alignment: center; }
+        Text {
+            text: "Connect to a Synapse server running Claude Code on your machine.";
+            font-size: 14px; color: Theme.textDim; horizontal-alignment: center; wrap: word-wrap;
+        }
+        VerticalLayout {
+            spacing: 10px; padding-top: 12px;
+            Rectangle {
+                height: 50px;
+                background: Theme.bgElev;
+                border-radius: Theme.radiusSm;
+                border-width: 1px;
+                border-color: Theme.border;
+                LineEdit {
+                    placeholder-text: "Host (192.168.1.6)";
+                    edited => { root.pairingHost = self.text; }
+                }
+            }
+            Rectangle {
+                height: 50px;
+                background: Theme.bgElev;
+                border-radius: Theme.radiusSm;
+                border-width: 1px;
+                border-color: Theme.border;
+                LineEdit {
+                    placeholder-text: "Port (4173)";
+                    edited => { root.pairingPort = self.text; }
+                }
+            }
+            Rectangle {
+                height: 50px;
+                background: Theme.bgElev;
+                border-radius: Theme.radiusSm;
+                border-width: 1px;
+                border-color: Theme.border;
+                LineEdit {
+                    placeholder-text: "Pairing code";
+                    edited => { root.pairingToken = self.text; }
+                }
+            }
+            // TLS toggle — enable for secure remote (wss://) connections.
+            HorizontalLayout {
+                padding-left: 4px; padding-right: 4px;
+                spacing: 8px;
+                Text {
+                    text: "Secure connection (wss/TLS)";
+                    font-size: 14px; color: Theme.textDim;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+                Rectangle {
+                    width: 46px; height: 28px;
+                    y: (parent.height - self.height) / 2;
+                    border-radius: 14px;
+                    background: root.pairingTls ? Theme.accent : Theme.bgElev2;
+                    TouchArea { clicked => { root.pairingTls = !root.pairingTls; } }
+                    Rectangle {
+                        width: 22px; height: 22px; border-radius: 11px;
+                        y: (parent.height - self.height) / 2;
+                        x: root.pairingTls ? parent.width - self.width - 3px : 3px;
+                        background: #ffffff;
+                        animate x { duration: 120ms; }
+                    }
+                }
+            }
+        }
+        Text { text: root.pairingError; color: Theme.danger; font-size: 13px; horizontal-alignment: center; }
+        Rectangle {
+            height: 50px;
+            border-radius: Theme.radiusSm;
+            background: root.connecting ? Theme.accentDim : Theme.accent;
+            TouchArea { clicked => { root.connectClicked(); } }
+            Text {
+                text: root.connecting ? "Connecting…" : "Continue";
+                color: #ffffff; font-weight: 600; font-size: 16px;
+                horizontal-alignment: center; vertical-alignment: center;
+            }
+        }
+        // Quick pair: scan / paste the server's pairing link.
+        Rectangle {
+            height: 44px;
+            TouchArea { clicked => { root.showPairSheet = true; } }
+            HorizontalLayout {
+                alignment: center;
+                Text {
+                    text: "Pair with QR / link";
+                    color: Theme.textDim; font-size: 14px; font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    // ===== Pair-with-QR overlay (shown over the pairing screen) =====
+    if root.showPairSheet : Rectangle {
+        background: Theme.overlay;
+        TouchArea {
+            // tapping the backdrop closes the sheet (but not the text area)
+            clicked => { root.showPairSheet = false; }
+        }
+        Rectangle {
+            width: min(root.width - 48px, 360px);
+            height: sheetCol.preferred-height + 40px;
+            x: (root.width - self.width) / 2;
+            y: (root.height - self.height) / 2;
+            border-radius: Theme.radius;
+            background: Theme.bg;
+            sheetCol := VerticalLayout {
+                padding: 22px; spacing: 14px;
+                HorizontalLayout {
+                    Text {
+                        text: "Pair a device";
+                        font-size: 18px; font-weight: 700; color: Theme.text;
+                        horizontal-stretch: 1;
+                    }
+                    Rectangle {
+                        width: 28px; height: 28px; border-radius: 14px;
+                        background: Theme.bgElev;
+                        TouchArea { clicked => { root.showPairSheet = false; } }
+                        Text { text: "✕"; font-size: 14px; color: Theme.textDim; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+                Text {
+                    text: "Run synapse-server — it prints a QR. Scan it with any QR app to copy the synapse:// link, paste it below, and Pair.";
+                    font-size: 13px; color: Theme.textDim; wrap: word-wrap;
+                }
+                Rectangle {
+                    height: 52px;
+                    background: Theme.bgElev;
+                    border-radius: Theme.radiusSm;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    LineEdit {
+                        placeholder-text: "synapse://host:port?token=…";
+                        text: root.pairLinkText;
+                        edited => { root.pairLinkText = self.text; }
+                        accepted => { root.pairClicked(root.pairLinkText); }
+                    }
+                }
+                Rectangle {
+                    height: 46px;
+                    border-radius: Theme.radiusSm;
+                    background: Theme.accent;
+                    TouchArea { clicked => { root.pairClicked(root.pairLinkText); } }
+                    Text {
+                        text: "Pair";
+                        color: #ffffff; font-weight: 600; font-size: 16px;
+                        horizontal-alignment: center; vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+
+    // ===== Chat view =====
+    if root.view == "chat" : VerticalLayout {
+        spacing: 0px;
+        // top bar
+        Rectangle {
+            height: 52px;
+            background: Theme.bg;
+            HorizontalLayout {
+                padding-left: 6px; padding-right: 6px;
+                spacing: 0px;
+                Rectangle {
+                    width: 44px; height: 44px;
+                    y: 4px;
+                    TouchArea { clicked => { root.toggleDrawer(); } }
+                    Text { text: "☰"; font-size: 20px; color: Theme.textDim; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Text {
+                        text: root.activeSessionName;
+                        font-weight: 600; font-size: 16px; color: Theme.text;
+                        horizontal-alignment: center; overflow: elide;
+                    }
+                    HorizontalLayout {
+                        alignment: center; spacing: 5px;
+                        Rectangle {
+                            width: 6px; height: 6px;
+                            y: (parent.height - self.height) / 2;
+                            border-radius: 3px;
+                            background: root.activeState == "busy" ? Theme.warn : root.activeState == "error" ? Theme.danger : Theme.accent;
+                        }
+                        Text { text: root.activeSessionSub; font-size: 11px; color: Theme.textFaint; overflow: elide; }
+                    }
+                }
+                Rectangle {
+                    width: 44px; height: 44px;
+                    y: 4px;
+                    TouchArea { clicked => { root.newSessionClicked(); } }
+                    Rectangle {
+                        width: 22px; height: 22px; border-radius: 11px;
+                        x: (parent.width - self.width) / 2;
+                        y: (parent.height - self.height) / 2;
+                        border-width: 1.5px; border-color: Theme.textDim;
+                        Text { text: "+"; font-size: 18px; color: Theme.textDim; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+            }
+        }
+        Rectangle { height: 1px; background: Theme.border; }
+
+        // reconnect banner
+        Rectangle {
+            height: root.reconnecting ? 30px : 0px;
+            background: Theme.warn;
+            animate height { duration: 200ms; }
+            Text {
+                text: "Reconnecting…";
+                font-size: 12px; color: #ffffff; font-weight: 600;
+                horizontal-alignment: center; vertical-alignment: center;
+            }
+        }
+
+        // message list
+        msgList := Flickable {
+            // Auto-scroll to the newest content: keep the bottom pinned as the
+            // message list grows (new messages, streamed tokens, tool updates).
+            // `viewport-y` is clamped automatically by Flickable, so a large
+            // negative value simply scrolls to the end.
+            // Auto-scroll: keep the newest content visible. viewport-y is the
+            // offset of the content; clamped by Flickable to [visible-height -
+            // content-height, 0]. Setting it to that minimum pins the bottom.
+            viewport-y: msgList.height - msgLayout.preferred-height;
+            msgLayout := VerticalLayout {
+                padding: 16px; spacing: 18px;
+                // Empty state — ChatGPT-style greeting when a session has no
+                // messages yet.
+                if root.messages.length == 0 : VerticalLayout {
+                    padding-top: 96px; alignment: start;
+                    HorizontalLayout { alignment: center;
+                        Rectangle {
+                            width: 56px; height: 56px; border-radius: 28px;
+                            background: Theme.accent;
+                            Text { text: "✦"; color: #ffffff; font-size: 26px; horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                    }
+                    VerticalLayout {
+                        padding-top: 18px; spacing: 6px;
+                        Text {
+                            text: "How can I help with your code?";
+                            font-size: 20px; font-weight: 700; color: Theme.text;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: "Send a prompt to start driving Claude Code.";
+                            font-size: 14px; color: Theme.textDim;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+                for msg[i] in root.messages : VerticalLayout {
+                    // ---- Tool call card ----
+                    toolRect := Rectangle {
+                        visible: msg.kind == "tool";
+                        height: msg.expanded ? toolBody.preferred-height + 56px : 52px;
+                        border-radius: Theme.radiusSm;
+                        background: Theme.bgElev;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        VerticalLayout {
+                            padding: 0px; spacing: 0px;
+                            Rectangle {
+                                height: 52px;
+                                TouchArea { clicked => { root.toggleTool(i); } }
+                                HorizontalLayout {
+                                    padding-left: 14px; padding-right: 14px;
+                                    spacing: 10px;
+                                    Rectangle {
+                                        width: 24px; height: 24px; border-radius: 6px;
+                                        y: (parent.height - self.height) / 2;
+                                        background: Theme.bgElev2;
+                                        Text { text: "✦"; font-size: 12px; color: Theme.textDim; horizontal-alignment: center; vertical-alignment: center; }
+                                    }
+                                    VerticalLayout {
+                                        spacing: 1px;
+                                        y: 8px;
+                                        Text {
+                                            text: msg.toolName;
+                                            font-weight: 600; font-size: 14px; color: Theme.text;
+                                            overflow: elide;
+                                        }
+                                        Text {
+                                            text: msg.toolName == "Bash" || msg.toolName == "bash" ? msg.text : "";
+                                            font-size: 12px; color: Theme.textFaint;
+                                            overflow: elide;
+                                        }
+                                    }
+                                    Rectangle {
+                                        width: 8px; height: 8px; border-radius: 4px;
+                                        y: (parent.height - self.height) / 2;
+                                        background: msg.toolStatus == "running" ? Theme.warn : (msg.toolStatus == "error" ? Theme.danger : Theme.accent);
+                                    }
+                                    Text {
+                                        text: msg.expanded ? "▾" : "▸";
+                                        font-size: 12px; color: Theme.textDim;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                            Rectangle {
+                                visible: msg.expanded;
+                                clip: true;
+                                toolBody := Text {
+                                    text: msg.text;
+                                    font-size: 13px; color: Theme.textDim;
+                                    wrap: word-wrap;
+                                    x: 14px; y: 4px;
+                                    width: parent.width - 28px;
+                                }
+                            }
+                        }
+                    }
+                    // ---- Code block (ChatGPT-style dark card) ----
+                    codeRect := Rectangle {
+                        visible: msg.kind == "code";
+                        border-radius: Theme.radiusSm;
+                        background: #1e1e2e;
+                        height: codeBody.preferred-height + 56px;
+                        VerticalLayout {
+                            padding: 0px; spacing: 0px;
+                            // language label bar
+                            Rectangle {
+                                height: 26px;
+                                background: #181825;
+                                border-top-left-radius: Theme.radiusSm;
+                                border-top-right-radius: Theme.radiusSm;
+                                HorizontalLayout {
+                                    padding-left: 12px; padding-right: 10px;
+                                    Text {
+                                        text: msg.codeLang == "" ? "code" : msg.codeLang;
+                                        font-size: 11px; color: #9a9aa8;
+                                        vertical-alignment: center;
+                                        letter-spacing: 0.5px;
+                                    }
+                                    Rectangle { horizontal-stretch: 1; }
+                                }
+                            }
+                            Rectangle {
+                                HorizontalLayout {
+                                    padding: 12px;
+                                    codeBody := Text {
+                                        text: msg.text;
+                                        font-family: "Menlo";
+                                        font-size: 12.5px; color: #cdd6f4;
+                                        wrap: word-wrap;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    // ---- Text rows ----
+                    textRect := VerticalLayout {
+                        visible: msg.kind != "tool" && msg.kind != "code";
+                        spacing: 6px;
+                        HorizontalLayout {
+                            spacing: 10px;
+                            // assistant: avatar + full-width text; user: spacer
+                            Rectangle {
+                                visible: msg.role != "user";
+                                width: 28px; height: 28px; border-radius: 14px;
+                                background: Theme.accent;
+                                Text { text: "✦"; color: #ffffff; font-size: 13px; horizontal-alignment: center; vertical-alignment: center; }
+                            }
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                // user: right-aligned bubble; assistant: plain text
+                                Rectangle {
+                                    visible: msg.role == "user";
+                                    height: msgText.preferred-height + 20px;
+                                    background: Theme.userBubble;
+                                    border-radius: Theme.radius;
+                                    msgText := Text {
+                                        text: msg.text; font-size: 15px; color: Theme.text; wrap: word-wrap;
+                                        x: 14px; y: 10px;
+                                        width: parent.width - 28px;
+                                    }
+                                }
+                                msgText2 := Text {
+                                    visible: msg.role != "user";
+                                    text: msg.text; font-size: 15px; color: Theme.text; wrap: word-wrap;
+                                }
+                            }
+                            // user rows get a right spacer equal to avatar width for balance
+                            Rectangle {
+                                visible: msg.role == "user";
+                                width: 28px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // floating composer
+        Rectangle {
+            height: 64px;
+            background: Theme.bg;
+            VerticalLayout {
+                padding: 8px; padding-bottom: 10px;
+                Rectangle {
+                    height: 48px;
+                    border-radius: 24px;
+                    background: Theme.bgElev;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    HorizontalLayout {
+                        padding-left: 6px; padding-right: 6px;
+                        LineEdit {
+                            placeholder-text: "Send a message";
+                            text: root.composerText;
+                            edited => { root.composerText = self.text; }
+                            accepted => { root.sendClicked(self.text); }
+                        }
+                        Rectangle {
+                            width: 36px; height: 36px; border-radius: 18px;
+                            y: (parent.height - self.height) / 2;
+                            background: root.composerText == "" && !root.busy ? Theme.border : (root.busy ? Theme.danger : Theme.accent);
+                            TouchArea {
+                                clicked => {
+                                    if root.busy { root.stopClicked(); }
+                                    else { root.sendClicked(root.composerText); }
+                                }
+                            }
+                            Text {
+                                text: root.busy ? "■" : "↑";
+                                color: #ffffff;
+                                font-size: 18px; font-weight: 700;
+                                horizontal-alignment: center; vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ===== Drawer overlay =====
+    if root.drawerOpen && root.view == "chat" : Rectangle {
+        background: Theme.overlay;
+        TouchArea { clicked => { root.toggleDrawer(); } }
+        Rectangle {
+            x: 0px; y: 0px;
+            width: min(root.width * 0.84, 320px);
+            height: root.height;
+            background: Theme.bg;
+            VerticalLayout {
+                padding-top: 14px; spacing: 6px;
+                HorizontalLayout {
+                    padding-left: 16px; padding-right: 10px; spacing: 8px;
+                    Text { text: "Synapse"; font-weight: 700; font-size: 18px; color: Theme.text; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle {
+                        width: 34px; height: 34px; border-radius: 17px;
+                        background: Theme.bgElev;
+                        TouchArea { clicked => { root.refreshClicked(); } }
+                        Text { text: "↻"; font-size: 16px; color: Theme.textDim; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                    Rectangle {
+                        width: 34px; height: 34px; border-radius: 17px;
+                        background: Theme.bgElev;
+                        TouchArea { clicked => { root.toggleDrawer(); } }
+                        Text { text: "✕"; font-size: 16px; color: Theme.textDim; horizontal-alignment: center; vertical-alignment: center; }
+                    }
+                }
+                HorizontalLayout {
+                    padding-left: 12px; padding-right: 12px; padding-top: 8px;
+                    Rectangle {
+                        height: 46px;
+                        border-radius: Theme.radiusSm;
+                        background: Theme.bgElev;
+                        border-width: 1px;
+                        border-color: Theme.border;
+                        TouchArea { clicked => { root.newSessionClicked(); } }
+                        HorizontalLayout {
+                            padding-left: 14px;
+                            alignment: start;
+                            Text { text: "+  New session"; color: Theme.text; font-weight: 600; font-size: 15px; vertical-alignment: center; }
+                        }
+                    }
+                }
+                Flickable {
+                    VerticalLayout {
+                        padding: 8px; spacing: 4px;
+                        for s[i] in root.sessions : Rectangle {
+                            height: 64px;
+                            border-radius: Theme.radiusSm;
+                            background: s.id == root.activeSessionId ? Theme.bgElev2 : #00000000;
+                            TouchArea { clicked => { root.selectSession(s.id); } }
+                            VerticalLayout {
+                                padding: 10px; spacing: 3px;
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    Rectangle {
+                                        width: 8px; height: 8px; border-radius: 4px;
+                                        y: (parent.height - self.height) / 2;
+                                        background: s.state == "busy" ? Theme.warn : Theme.accent;
+                                    }
+                                    Text { text: s.name; font-weight: 600; font-size: 15px; color: Theme.text; overflow: elide; }
+                                }
+                                Text { text: s.model == "" ? "—" : s.model; font-size: 12px; color: Theme.textFaint; }
+                                Text { text: s.cwd; font-size: 11px; color: Theme.textFaint; overflow: elide; }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

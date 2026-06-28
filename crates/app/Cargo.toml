@@ -1,0 +1,37 @@
+[package]
+name = "synapse-app"
+version.workspace = true
+edition.workspace = true
+description = "Cross-platform mobile control app for the Claude Code CLI"
+
+[lib]
+name = "synapse_app"
+crate-type = ["lib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "synapse-app"
+path = "src/main.rs"
+
+[features]
+# On Android, enable the android-activity backend instead of the
+# desktop winit backend. Pass `--features android` from build-android.sh.
+android = ["slint/backend-android-activity-06"]
+default = []
+
+[dependencies]
+slint = { version = "1.7", default-features = false, features = ["std", "compat-1-2", "backend-winit", "renderer-femtovg-wgpu", "unstable-wgpu-29"] }
+tokio = { version = "1", features = ["full"] }
+tokio-tungstenite = { version = "0.23", default-features = false, features = ["connect", "rustls-tls-webpki-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "tls12", "std"] }
+rustls-pki-types = "1"
+url = "2"
+futures-util = "0.3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+log = "0.4"
+env_logger = "0.11"
+
+[build-dependencies]
+slint-build = "1.7"

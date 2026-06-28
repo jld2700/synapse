@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.synapse.app"
+    android:versionCode="1"
+    android:versionName="0.1.0">
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="34" />
+    <!-- Outgoing network: WebSocket to the synapse-server -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <application
+        android:label="Synapse"
+        android:hasCode="false"
+        android:allowBackup="true">
+        <activity
+            android:name="android.app.NativeActivity"
+            android:label="Synapse"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="true">
+            <meta-data android:name="android.app.lib_name" android:value="synapse_app" />
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

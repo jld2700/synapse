@@ -1,3 +1,23 @@
-node_modules/
-*.log
+# Rust build artifacts
+/target
+**/target
+
+# iOS / Xcode
+mobile/ios/Synapse.xcodeproj/project.xcworkspace/
+mobile/ios/Synapse.xcodeproj/xcuserdata/
+mobile/ios/build/
+*.ipa
+
+# Android
+mobile/android/build/
+*.apk
+
+# macOS
 .DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

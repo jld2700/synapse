@@ -1,0 +1,192 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+/* Begin PBXFileReference section */
+		AA000001 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
+		AA000002 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		AA000003 /* AppDelegate.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = AppDelegate.mm; sourceTree = "<group>"; };
+		AA000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		AA000010 /* libsynapse_app.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libsynapse_app.a; path = "../../target/aarch64-apple-ios/release/libsynapse_app.a"; sourceTree = "<group>"; };
+		AA000020 /* Synapse.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Synapse.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		AA000100 /* Sources */ = {
+			isa = PBXGroup;
+			children = (AA000001 /* main.m */, AA000002 /* AppDelegate.h */, AA000003 /* AppDelegate.mm */, AA000004 /* Info.plist */);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		AA000101 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (AA000010 /* libsynapse_app.a */);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		AA000102 /* Root */ = {
+			isa = PBXGroup;
+			children = (AA000100 /* Sources */, AA000101 /* Frameworks */);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AA000200 /* Synapse */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA000400 /* Build configuration list for Synapse */;
+			buildPhases = (
+				AA000300 /* Build Rust staticlib */,
+				AA000301 /* Sources */,
+				AA000302 /* Frameworks */
+			);
+			buildRules = ();
+			dependencies = ();
+			name = Synapse;
+			productName = Synapse;
+			productReference = AA000020 /* Synapse.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		AA000300 /* Build Rust staticlib */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Build Rust staticlib";
+			outputPaths = ("$(SRCROOT)/../../target/aarch64-apple-ios/release/libsynapse_app.a");
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cd \"$SRCROOT/../..\"\ncargo build -p synapse-app --lib --target aarch64-apple-ios --crate-type staticlib --release\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AA000301 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (AA000501 /* main.m in Sources */, AA000502 /* AppDelegate.mm in Sources */);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		AA000302 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (AA000503 /* libsynapse_app.a in Frameworks */);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXBuildFile section */
+		AA000501 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = AA000001 /* main.m */; };
+		AA000502 /* AppDelegate.mm in Sources */ = {isa = PBXBuildFile; fileRef = AA000003 /* AppDelegate.mm */; };
+		AA000503 /* libsynapse_app.a in Frameworks */ = {isa = PBXBuildFile; fileRef = AA000010 /* libsynapse_app.a */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXProject section */
+		AA000600 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {LastUpgradeCheck = 1400; };
+			buildConfigurationList = AA000700 /* Build configuration list for PBXProject */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base);
+			mainGroup = AA000102 /* Root */;
+			productRefGroup = AA000101 /* Frameworks */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (AA000200 /* Synapse */);
+		};
+/* End PBXProject section */
+
+/* Begin PBXContainerItemProxy section */
+/* End PBXContainerItemProxy section */
+
+/* Begin XCBuildConfiguration section */
+		AA000800 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Sources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				OTHER_LDFLAGS = ("$(SRCROOT)/../../target/aarch64-apple-ios/release/libsynapse_app.a", "-ObjC");
+				PRODUCT_BUNDLE_IDENTIFIER = com.synapse.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		AA000801 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_IDENTITY = "-";
+				CODE_SIGN_STYLE = Automatic;
+				INFOPLIST_FILE = Sources/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				OTHER_LDFLAGS = ("$(SRCROOT)/../../target/aarch64-apple-ios/release/libsynapse_app.a", "-ObjC");
+				PRODUCT_BUNDLE_IDENTIFIER = com.synapse.app;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		AA000802 /* Project Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				SDKROOT = iphoneos;
+			};
+			name = Release;
+		};
+		AA000803 /* Project Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		AA000400 /* Build configuration list for Synapse */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (AA000801 /* Debug */, AA000800 /* Release */);
+			defaultConfigurationName = Release;
+		};
+		AA000700 /* Build configuration list for PBXProject */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (AA000803 /* Project Debug */, AA000802 /* Project Release */);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = AA000600 /* Project object */;
+}
