@@ -3,6 +3,7 @@ mod history;
 mod http;
 mod manager;
 mod tls;
+mod tunnel;
 
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -58,6 +59,11 @@ struct Args {
     /// override with a public hostname/IP for remote setups.
     #[arg(long)]
     pair_host: Option<String>,
+    /// Expose the server over the public internet via a Cloudflare Tunnel
+    /// (quick tunnel). Gives a public wss:// URL with a real certificate, so
+    /// any phone can reach this machine from anywhere with zero network setup.
+    #[arg(long)]
+    tunnel: bool,
     /// Verbose logging.
     #[arg(long)]
     dev: bool,
@@ -105,14 +111,35 @@ async fn main() -> Result<()> {
     }
     println!("\n  Connect your App to: {scheme}://{addr}/?token={token}\n");
 
-    // Build a scannable pairing URL for the QR code. Prefer --pair-host, else
-    // auto-detect a LAN IP so a phone on the same Wi-Fi can scan & connect.
-    let pair_host = args.pair_host.clone().unwrap_or_else(detect_lan_ip);
-    let tls_flag = if args.tls { 1 } else { 0 };
-    let pair_url = format!(
-        "synapse://{pair_host}:{}?token={token}&tls={tls_flag}",
-        args.port
-    );
+    // Build a scannable pairing URL for the QR code.
+    // --tunnel: expose over the public internet via Cloudflare (real TLS,
+    //   wss://, reachable from any phone anywhere). This is the productized
+    //   remote path; the LAN IP path below remains for local use.
+    let (pair_host, pair_port, pair_tls) = if args.tunnel {
+        println!("  Starting Cloudflare Tunnel (public wss access)…");
+        let local_url = format!("http://localhost:{}", args.port);
+        match tunnel::start_quick_tunnel(&local_url).await {
+            Ok(public_host) => {
+                println!("  Public tunnel:  https://{public_host}");
+                (public_host, 443u16, 1u8)
+            }
+            Err(e) => {
+                tracing::error!("cloudflare tunnel failed: {e}; falling back to LAN pairing");
+                (
+                    args.pair_host.clone().unwrap_or_else(detect_lan_ip),
+                    args.port,
+                    if args.tls { 1 } else { 0 },
+                )
+            }
+        }
+    } else {
+        (
+            args.pair_host.clone().unwrap_or_else(detect_lan_ip),
+            args.port,
+            if args.tls { 1 } else { 0 },
+        )
+    };
+    let pair_url = format!("synapse://{pair_host}:{pair_port}?token={token}&tls={pair_tls}");
     println!("  Pairing URL:    {pair_url}");
     println!("  Scan this QR with the app to bind this device:\n");
     match qr2term::print_qr(&pair_url) {

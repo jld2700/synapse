@@ -86,6 +86,27 @@ server at your cert/key instead:
 ./target/release/synapse-server --port 443 --token CODE   --tls --tls-cert /etc/letsencrypt/live/my.domain/fullchain.pem   --tls-key  /etc/letsencrypt/live/my.domain/privkey.pem
 ```
 
+### Remote access from anywhere (Cloudflare Tunnel, no setup)
+
+For a **productized** experience — any phone reaching your machine from any
+network (4G/5G/Wi-Fi) with zero router/NAT/cert setup and a **real TLS
+certificate** — use `--tunnel`:
+
+```sh
+./target/release/synapse-server --port 4173 --token CODE   --cwd ~/code/myproject --tunnel
+```
+
+The server automatically starts a Cloudflare quick tunnel and prints a public
+`https://*.trycloudflare.com` URL with a real certificate. The pairing QR /
+link becomes `synapse://<host>.trycloudflare.com:443?token=CODE&tls=1`, which
+the app connects to over standard `wss://` — fully encrypted, iOS-compliant,
+no domain or port-forwarding needed.
+
+> Requires `cloudflared` on PATH (`brew install cloudflared` on macOS). Quick
+> tunnels are free and need no Cloudflare account; for a stable fixed hostname
+> in production, create a named tunnel with your own domain. If the tunnel
+> can't start, the server falls back to LAN pairing automatically.
+
 ### Pair a device by QR code
 
 On startup the server prints a **QR code** in the terminal encoding a pairing
@@ -129,6 +150,7 @@ details by hand.
 | `--tls-cert-out` | — | Persist the generated self-signed cert (PEM) to this path |
 | `--tls-key-out` | — | Persist the generated self-signed key (PEM) to this path |
 | `--pair-host` | auto (LAN IP) | Host encoded in the pairing QR / URL (override for a public hostname/IP) |
+| `--tunnel` | off | Expose via Cloudflare Tunnel: public `wss://` with a real cert, reachable from anywhere (no NAT/router setup) |
 | `--dev` | off | Verbose logging |
 
 ## Run the app
