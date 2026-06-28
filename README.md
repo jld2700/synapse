@@ -170,7 +170,24 @@ Connect to `ws://<host>:<port>/?token=<TOKEN>`. All messages are JSON.
 | `system` | `subtype`, `sessionId` | `turn_started`, `turn_stopped`, `session_created`, `fallback_to_json`, `bridge_error` |
 | `error` | `error`, `op?` | Operation failed |
 
+## CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push / pull request:
+
+- **lint-test** (Ubuntu) — `cargo fmt --check`, `cargo clippy -D warnings`,
+  `cargo test`, `cargo build --release`. Uploads the Linux server binary.
+- **ios-lib** (macOS) — compiles the `aarch64-apple-ios` static library
+  (`libsynapse_app.a`) that the Xcode project links, and uploads it. Verifies
+  the `iphoneos` SDK is present (the `ring` TLS crate needs it for iOS).
+
+All CI steps are verified green locally (`fmt` clean, clippy `-D warnings`
+clean, 11 tests pass, desktop build + release build succeed). The iOS static
+library compiles under a full Xcode (it needs the `iphoneos` SDK for `ring`;
+CommandLineTools alone cannot cross-compile it).
+
 ## Mobile packaging (iOS / Android)
+
+
 
 The app crate is split into a shared library (`src/lib.rs`: app logic + the
 `run_app` entry) and a thin desktop binary (`src/main.rs`). On iOS/Android the
